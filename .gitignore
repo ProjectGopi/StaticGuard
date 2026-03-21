@@ -1,0 +1,41 @@
+# Compiled class files
+target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Generated reports (re-generated on each run)
+report.json
+report.html
+
+# Maven wrapper
+.mvn/
+
+# Config files generated at runtime
+staticguard-config.json
+
+# Log files
+*.log
+
+# Package files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Test check file (not part of main project)
+TestCheck.java
