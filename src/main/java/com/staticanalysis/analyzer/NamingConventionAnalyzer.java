@@ -37,7 +37,7 @@ public class NamingConventionAnalyzer extends VoidVisitorAdapter<Void> {
         String name = cid.getNameAsString();
         int line = cid.getBegin().map(p -> p.line).orElse(-1);
 
-        // Classes should be PascalCase
+        // NAME-001: Classes should be PascalCase
         if (!isPascalCase(name)) {
             DefectCollector.addDefect(new Defect(
                 "Naming", "Class name '" + name + "' does not follow PascalCase convention",
@@ -46,6 +46,23 @@ public class NamingConventionAnalyzer extends VoidVisitorAdapter<Void> {
                 "Rename class to PascalCase (e.g., MyClassName)."
             ));
         }
+
+        // NAME-008: Exception subclasses should end with 'Exception'
+        cid.getExtendedTypes().forEach(ext -> {
+            String parentName = ext.getNameAsString();
+            boolean extendsException = parentName.endsWith("Exception")
+                || parentName.equals("RuntimeException")
+                || parentName.equals("Error");
+            if (extendsException && !name.endsWith("Exception") && !name.endsWith("Error")) {
+                DefectCollector.addDefect(new Defect(
+                    "Naming",
+                    "Exception class '" + name + "' does not end with 'Exception'",
+                    "MINOR", fileName, line,
+                    "NAME-008", Defect.Category.NAMING,
+                    "Rename to '" + name + "Exception' to follow Java exception naming conventions."
+                ));
+            }
+        });
     }
 
     @Override
@@ -55,7 +72,7 @@ public class NamingConventionAnalyzer extends VoidVisitorAdapter<Void> {
         String name = md.getNameAsString();
         int line = md.getBegin().map(p -> p.line).orElse(-1);
 
-        // Methods should be camelCase
+        // NAME-002: Methods should be camelCase
         if (!isCamelCase(name)) {
             DefectCollector.addDefect(new Defect(
                 "Naming", "Method name '" + name + "' does not follow camelCase convention",
@@ -63,6 +80,29 @@ public class NamingConventionAnalyzer extends VoidVisitorAdapter<Void> {
                 "NAME-002", Defect.Category.NAMING,
                 "Rename method to camelCase (e.g., myMethodName)."
             ));
+        }
+
+        // NAME-009: Test methods should follow test naming conventions
+        boolean looksLikeTest =
+            md.getAnnotations().stream().anyMatch(a -> a.getNameAsString().equals("Test")
+                || a.getNameAsString().equals("ParameterizedTest")
+                || a.getNameAsString().equals("RepeatedTest"));
+        if (looksLikeTest) {
+            boolean followsTestNaming = name.startsWith("test")
+                || name.startsWith("should")
+                || name.startsWith("given")
+                || name.startsWith("when")
+                || name.contains("_should")
+                || name.contains("_when");
+            if (!followsTestNaming) {
+                DefectCollector.addDefect(new Defect(
+                    "Naming",
+                    "Test method '" + name + "' does not follow a descriptive naming convention",
+                    "MINOR", fileName, line,
+                    "NAME-009", Defect.Category.NAMING,
+                    "Name test methods to describe behaviour, e.g., 'shouldReturnEmptyWhenInputIsNull' or 'testCalculateSum'."
+                ));
+            }
         }
 
         // Check parameter names
@@ -81,7 +121,7 @@ public class NamingConventionAnalyzer extends VoidVisitorAdapter<Void> {
         });
 
         // Check local variable names
-        md.findAll(VariableDeclarator.class).forEach(vd -> {
+        md.findAll(com.github.javaparser.ast.body.VariableDeclarator.class).forEach(vd -> {
             checkVariableName(vd, false);
         });
     }

@@ -46,11 +46,15 @@ public class AnalysisConfig {
     private String jsonReportName = "report.json";
     private String htmlReportName = "report.html";
 
-    private static AnalysisConfig instance;
+    private static volatile AnalysisConfig instance;
 
     public static AnalysisConfig getInstance() {
         if (instance == null) {
-            instance = new AnalysisConfig();
+            synchronized (AnalysisConfig.class) {
+                if (instance == null) {
+                    instance = new AnalysisConfig();
+                }
+            }
         }
         return instance;
     }

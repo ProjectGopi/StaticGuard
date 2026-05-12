@@ -56,15 +56,27 @@ public class DeadCodeDetector extends VoidVisitorAdapter<Void> {
             // Detect Unreachable Code after throw
             detectUnreachableAfter(md, body, ThrowStmt.class, "throw");
 
-            // Detect Unused Variables
+            // B2 fix: Build separate declared vs used sets.
+            // We exclude each variable's own name from usedVars to avoid
+            // a false-negative where the declarator self-initialises.
             Set<String> declaredVars = new HashSet<>();
-            Set<String> usedVars = new HashSet<>();
-
             body.findAll(VariableDeclarator.class)
                     .forEach(v -> declaredVars.add(v.getNameAsString()));
 
-            body.findAll(NameExpr.class)
-                    .forEach(n -> usedVars.add(n.getNameAsString()));
+            // Collect all NameExpr usages, but skip names that are only referenced
+            // as the target of their own declaration (LHS of a VariableDeclarator)
+            Set<String> usedVars = new HashSet<>();
+            body.findAll(NameExpr.class).forEach(n -> {
+                // A NameExpr that is the direct child name of a VariableDeclarator
+                // does not count as a usage of that variable.
+                boolean isSelfDeclaration = n.getParentNode()
+                    .filter(p -> p instanceof VariableDeclarator)
+                    .map(p -> ((VariableDeclarator) p).getNameAsString().equals(n.getNameAsString()))
+                    .orElse(false);
+                if (!isSelfDeclaration) {
+                    usedVars.add(n.getNameAsString());
+                }
+            });
 
             for (String var : declaredVars) {
                 if (!usedVars.contains(var)) {
@@ -112,8 +124,17 @@ public class DeadCodeDetector extends VoidVisitorAdapter<Void> {
     }
 
     private void detectUnusedImports(CompilationUnit cu) {
-        // Get all the source code as string to check if import types are used
-        String sourceCode = cu.toString();
+        // P1 fix: build a Set of simple names used in the source once, O(n),
+        // instead of re-serialising cu.toString() and running replaceAll for every import.
+        Set<String> usedTypeNames = new HashSet<>();
+
+        // Collect all NameExpr references (class names, static method calls, etc.)
+        cu.findAll(com.github.javaparser.ast.expr.NameExpr.class)
+            .forEach(n -> usedTypeNames.add(n.getNameAsString()));
+
+        // Also collect ClassOrInterfaceType references (field types, return types, etc.)
+        cu.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class)
+            .forEach(t -> usedTypeNames.add(t.getNameAsString()));
 
         for (ImportDeclaration imp : cu.getImports()) {
             if (imp.isAsterisk()) continue; // skip wildcard imports
@@ -121,9 +142,7 @@ public class DeadCodeDetector extends VoidVisitorAdapter<Void> {
             String importName = imp.getNameAsString();
             String simpleName = importName.substring(importName.lastIndexOf('.') + 1);
 
-            // Check if the simple name appears anywhere in the source (excluding the import itself)
-            String sourceWithoutImports = sourceCode.replaceAll("import\\s+.*?;", "");
-            if (!sourceWithoutImports.contains(simpleName)) {
+            if (!usedTypeNames.contains(simpleName)) {
                 DefectCollector.addDefect(new Defect(
                     "Dead Code",
                     "Unused import -> " + importName,

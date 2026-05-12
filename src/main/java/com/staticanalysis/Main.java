@@ -14,6 +14,7 @@ import com.staticanalysis.model.DefectCollector;
 import com.staticanalysis.parser.CodeParser;
 import com.staticanalysis.parser.FileScanner;
 import com.staticanalysis.report.ReportGenerator;
+import com.staticanalysis.web.WebServer;
 
 public class Main {
 
@@ -26,6 +27,7 @@ public class Main {
     private static final String BOLD = "\u001B[1m";
 
     private static boolean verbose = false;
+    private static boolean webMode = false;
     private static String severityFilter = null;
     private static String configPath = null;
     private static String outputDir = null;
@@ -40,6 +42,10 @@ public class Main {
                 case "-h":
                     printHelp();
                     return;
+                case "--web":
+                case "-w":
+                    webMode = true;
+                    break;
                 case "--path":
                 case "-p":
                     if (i + 1 < args.length) projectPath = args[++i];
@@ -70,6 +76,19 @@ public class Main {
                     }
                     break;
             }
+        }
+
+        // Web UI mode — start the embedded HTTP server and block
+        if (webMode) {
+            try {
+                new WebServer().start();
+                // Keep the main thread alive until Ctrl+C
+                Thread.currentThread().join();
+            } catch (Exception e) {
+                System.out.println(RED + "Failed to start web server: " + e.getMessage() + RESET);
+                System.exit(1);
+            }
+            return;
         }
 
         AnalysisConfig config;
@@ -190,6 +209,7 @@ public class Main {
         System.out.println("  -s, --severity <level>  Filter by severity: CRITICAL, MAJOR, MINOR");
         System.out.println("  -c, --config <file>     Path to configuration JSON file");
         System.out.println("  -v, --verbose           Enable verbose output");
+        System.out.println("  -w, --web               Start the Web UI server at http://localhost:8080");
         System.out.println("  --generate-config       Generate default config file");
         System.out.println("  -h, --help              Show this help message");
         System.out.println();

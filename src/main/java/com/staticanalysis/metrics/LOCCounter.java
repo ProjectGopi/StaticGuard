@@ -103,6 +103,24 @@ public class LOCCounter extends VoidVisitorAdapter<Void> {
                 "Add documentation comments to improve code maintainability. Recommended minimum: " + String.format("%.0f%%", config.getMinCommentRatio() * 100)
             ));
         }
+
+        // DOC-001: Public methods without Javadoc
+        cu.findAll(MethodDeclaration.class).forEach(md -> {
+            if (md.isPublic()) {
+                boolean hasJavadoc = md.getComment().isPresent()
+                    && md.getComment().get().getContent().startsWith("*");
+                if (!hasJavadoc) {
+                    DefectCollector.addDefect(new Defect(
+                        "Metrics",
+                        "Missing Javadoc on public method -> " + md.getName(),
+                        "MINOR", fileName,
+                        md.getBegin().map(p -> p.line).orElse(-1),
+                        "DOC-001", Defect.Category.METRICS,
+                        "Add a Javadoc comment describing the method's purpose, parameters, and return value."
+                    ));
+                }
+            }
+        });
     }
 
     // Getter for MaintainabilityIndex

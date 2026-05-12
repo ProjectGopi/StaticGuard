@@ -83,17 +83,17 @@ public class DuplicateCodeDetector extends VoidVisitorAdapter<Void> {
         }
     }
 
+    // P2: Pre-compiled pattern strips comments and collapses whitespace in one pass
+    private static final java.util.regex.Pattern NORMALIZE_PATTERN =
+        java.util.regex.Pattern.compile("//[^\n]*|/\\*.*?\\*/|\\s+", java.util.regex.Pattern.DOTALL);
+
     /**
      * Normalize code for comparison:
-     * - Remove all whitespace variations
-     * - Replace variable names with placeholders (Type-2 clone detection)
+     * - Remove single-line and multi-line comments
+     * - Collapse all whitespace in a single regex pass (Type-1/2 clone detection)
      */
     private String normalizeCode(String code) {
-        return code
-            .replaceAll("\\s+", " ")           // normalize whitespace
-            .replaceAll("//.*", "")             // remove single-line comments
-            .replaceAll("/\\*.*?\\*/", "")      // remove multi-line comments
-            .trim();
+        return NORMALIZE_PATTERN.matcher(code).replaceAll(" ").trim();
     }
 
     private String computeHash(String text) {
